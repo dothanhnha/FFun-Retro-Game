@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="RetroScreen">
+        <attr name="row" format="integer" />
+        <attr name="col" format="integer" />
+        <attr name="paddingEachCell" format="dimension" />
+    </declare-styleable>
+</resources>
