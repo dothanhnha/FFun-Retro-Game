@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Point
 import android.util.AttributeSet
 import android.view.View
 
@@ -26,8 +27,9 @@ class RetroScreen(context: Context?, attrs: AttributeSet?) : View(context, attrs
     // per cell have this paddingPerCell padding => between 2 cell => have 2*paddingPerCell distance
     var paddingPerCell: Float // as pixel
 
-    var testX =  5
-    var testY =  5
+    var listBricks: ArrayList<Brick> = ArrayList()
+    var fallingBrick : Brick? = null
+    var matrix : ArrayList<ArrayList<Boolean>>
 
     init {
         context?.theme?.obtainStyledAttributes(
@@ -40,6 +42,16 @@ class RetroScreen(context: Context?, attrs: AttributeSet?) : View(context, attrs
             paddingPerCell =
                 (this?.getDimension(R.styleable.RetroScreen_paddingEachCell, DEF_PADDING_EACH_CELL)
                     ?: DEF_PADDING_EACH_CELL).dpToPx(resources)/2f
+
+            var colTemp: ArrayList<Boolean>
+
+            matrix = ArrayList()
+            for(y in 0 until row){
+                colTemp = ArrayList(col)
+                for(x in 0 until col){
+                    matrix.add(colTemp)
+                }
+            }
         }
 
         configurePaint()
@@ -64,17 +76,11 @@ class RetroScreen(context: Context?, attrs: AttributeSet?) : View(context, attrs
 
     override fun onDraw(canvas: Canvas?) {
         super.onDraw(canvas)
-/*        for(x in 0 until col){
-            for(y in 0 until row){
-                canvas?.apply {
-                    drawOneCell(this, y, x)
-                }
+        listBricks.forEach {
+            canvas?.apply {
+                drawOneBrick(this, it)
             }
-        }*/
-        canvas?.apply {
-            drawOneCell(this, testY, testX)
         }
-
     }
 
     fun drawOneCell(canvas: Canvas, indexRow: Int, indexCol: Int){
@@ -84,26 +90,46 @@ class RetroScreen(context: Context?, attrs: AttributeSet?) : View(context, attrs
             leftTop.second + paddingPerCell + cellHeightWithoutPadding, cellPaint)
     }
 
+    fun drawOneBrick(canvas: Canvas, brick: Brick){
+        brick.listCells.forEach {
+            drawOneCell(canvas, it.y, it.x)
+        }
+    }
+
     fun determineLeftTopCellWithoutPadding(indexRow: Int, indexCol: Int) : Pair<Float, Float> {
         val x = firstXIncludePaddingEachCell + indexCol * cellWidthIncludePadding
         val y = firstYIncludePaddingEachCell + indexRow * cellHeightIncludePadding
         return Pair(x,y)
     }
 
-    fun up(){
-        testY--
-        invalidate()
-    }
     fun down(){
-        testY++
+        fallingBrick?.down()
         invalidate()
     }
+
     fun left(){
-        testX--
+        fallingBrick?.left()
         invalidate()
     }
+
     fun right(){
-        testX++
+        fallingBrick?.right()
         invalidate()
     }
+
+/*    fun newFallingBrick(){
+        fallingBrick =
+    }*/
+
+    fun fixedBrick(brick: Brick){
+        brick.listCells.forEach {
+            matrix[it.x][it.y] = true
+        }
+    }
+
+/*    fun checkImpact(): Boolean{
+        fallingBrick?.listCells?.forEach {
+            if(matrix[it.x][it.y])
+        }
+    }*/
 }
