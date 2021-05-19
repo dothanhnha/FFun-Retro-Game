@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Point
 import android.util.AttributeSet
+import android.view.MotionEvent
 import android.view.View
 
 class RetroScreen(context: Context?, attrs: AttributeSet?) : View(context, attrs) {
@@ -28,33 +29,51 @@ class RetroScreen(context: Context?, attrs: AttributeSet?) : View(context, attrs
     var paddingPerCell: Float // as pixel
 
     var listBricks: ArrayList<Brick> = ArrayList()
-    var fallingBrick : Brick? = null
-    var matrix : ArrayList<ArrayList<Boolean>>
+    var fallingBrick: Brick? = null
+
+    lateinit var matrix: ArrayList<ArrayList<Boolean>>
 
     init {
         context?.theme?.obtainStyledAttributes(
-            attrs,
-            R.styleable.RetroScreen,
-            0, 0
+                attrs,
+                R.styleable.RetroScreen,
+                0, 0
         ).apply {
             row = this?.getInt(R.styleable.RetroScreen_row, DEF_ROW) ?: DEF_ROW
             col = this?.getInt(R.styleable.RetroScreen_col, DEF_COL) ?: DEF_COL
             paddingPerCell =
-                (this?.getDimension(R.styleable.RetroScreen_paddingEachCell, DEF_PADDING_EACH_CELL)
-                    ?: DEF_PADDING_EACH_CELL).dpToPx(resources)/2f
+                    (this?.getDimension(R.styleable.RetroScreen_paddingEachCell, DEF_PADDING_EACH_CELL)
+                            ?: DEF_PADDING_EACH_CELL).dpToPx(resources) / 2f
 
-            var colTemp: ArrayList<Boolean>
+            initMatrix()
 
-            matrix = ArrayList()
-            for(y in 0 until row){
-                colTemp = ArrayList(col)
-                for(x in 0 until col){
-                    matrix.add(colTemp)
-                }
-            }
         }
 
         configurePaint()
+
+        genNewBrick()
+    }
+
+    private fun initMatrix() {
+        var colTemp: ArrayList<Boolean>
+
+        matrix = ArrayList()
+        for (x in 0 until col) {
+            colTemp = ArrayList()
+            for (y in 0 until row) {
+                colTemp.add(y == 0 || y == row - 1 || x == 0 || x == col - 1)
+            }
+            matrix.add(colTemp)
+        }
+
+        //make true border
+        for (x in 0 until col) {
+            colTemp = ArrayList()
+            for (y in 0 until row) {
+                colTemp.add(false)
+            }
+            matrix.add(colTemp)
+        }
     }
 
     private fun configurePaint() {
@@ -65,10 +84,10 @@ class RetroScreen(context: Context?, attrs: AttributeSet?) : View(context, attrs
 
     override fun onSizeChanged(width: Int, height: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(width, height, oldw, oldh)
-        cellHeightIncludePadding = (height - (paddingBottom + paddingTop) - 2*paddingPerCell).toFloat() / row.toFloat()
-        cellWidthIncludePadding = (width - (paddingLeft + paddingRight) - 2*paddingPerCell).toFloat() / col.toFloat()
-        cellWidthWithoutPadding = cellWidthIncludePadding - 2*paddingPerCell
-        cellHeightWithoutPadding = cellHeightIncludePadding - 2*paddingPerCell
+        cellHeightIncludePadding = (height - (paddingBottom + paddingTop) - 2 * paddingPerCell).toFloat() / row.toFloat()
+        cellWidthIncludePadding = (width - (paddingLeft + paddingRight) - 2 * paddingPerCell).toFloat() / col.toFloat()
+        cellWidthWithoutPadding = cellWidthIncludePadding - 2 * paddingPerCell
+        cellHeightWithoutPadding = cellHeightIncludePadding - 2 * paddingPerCell
         firstXIncludePaddingEachCell = paddingLeft + paddingPerCell
         firstYIncludePaddingEachCell = paddingTop + paddingPerCell
     }
@@ -76,60 +95,77 @@ class RetroScreen(context: Context?, attrs: AttributeSet?) : View(context, attrs
 
     override fun onDraw(canvas: Canvas?) {
         super.onDraw(canvas)
-        listBricks.forEach {
-            canvas?.apply {
-                drawOneBrick(this, it)
+        matrix.forEachIndexed { x: Int, arrayList: ArrayList<Boolean> ->
+            arrayList.forEachIndexed { y: Int, isPaint: Boolean ->
+                if (isPaint)
+                    canvas?.apply {
+                        drawOneCell(this, y, x)
+                    }
             }
         }
     }
 
-    fun drawOneCell(canvas: Canvas, indexRow: Int, indexCol: Int){
+    fun drawOneCell(canvas: Canvas, indexRow: Int, indexCol: Int) {
         val leftTop = determineLeftTopCellWithoutPadding(indexRow, indexCol)
         canvas.drawRect(leftTop.first + paddingPerCell, leftTop.second + paddingPerCell,
-            leftTop.first + paddingPerCell + cellWidthWithoutPadding,
-            leftTop.second + paddingPerCell + cellHeightWithoutPadding, cellPaint)
+                leftTop.first + paddingPerCell + cellWidthWithoutPadding,
+                leftTop.second + paddingPerCell + cellHeightWithoutPadding, cellPaint)
     }
 
-    fun drawOneBrick(canvas: Canvas, brick: Brick){
-        brick.listCells.forEach {
-            drawOneCell(canvas, it.y, it.x)
-        }
-    }
-
-    fun determineLeftTopCellWithoutPadding(indexRow: Int, indexCol: Int) : Pair<Float, Float> {
+    fun determineLeftTopCellWithoutPadding(indexRow: Int, indexCol: Int): Pair<Float, Float> {
         val x = firstXIncludePaddingEachCell + indexCol * cellWidthIncludePadding
         val y = firstYIncludePaddingEachCell + indexRow * cellHeightIncludePadding
-        return Pair(x,y)
+        return Pair(x, y)
     }
 
-    fun down(){
-        fallingBrick?.down()
+    fun move(movement: Brick.Movement) {
+        if (!checkImpact(movement)) {
+            clearBrick(fallingBrick)
+
+            fallingBrick?.move(movement)
+
+            fixedBrick(fallingBrick)
+        }
+        else if(movement == Brick.Movement.DOWN){
+            genNewBrick()
+        }
+
         invalidate()
     }
 
-    fun left(){
-        fallingBrick?.left()
-        invalidate()
-    }
-
-    fun right(){
-        fallingBrick?.right()
-        invalidate()
-    }
-
-/*    fun newFallingBrick(){
-        fallingBrick =
-    }*/
-
-    fun fixedBrick(brick: Brick){
-        brick.listCells.forEach {
+    fun fixedBrick(brick: Brick?) {
+        brick?.listCells?.forEach {
             matrix[it.x][it.y] = true
         }
     }
 
-/*    fun checkImpact(): Boolean{
-        fallingBrick?.listCells?.forEach {
-            if(matrix[it.x][it.y])
+    fun clearBrick(brick: Brick?) {
+        brick?.listCells?.forEach {
+            matrix[it.x][it.y] = false
         }
-    }*/
+    }
+
+    private fun genNewBrick() {
+        fallingBrick = Brick.Builder(Brick.Type.L_SHAPE)
+                .x(5)
+                .y(5)
+                .build()
+        fallingBrick?.apply {
+            fixedBrick(this)
+        }
+    }
+
+    fun checkImpact(movement: Brick.Movement): Boolean {
+        clearBrick(fallingBrick)
+        fallingBrick?.apply {
+            Brick.clone(this).move(movement).listCells.forEach {
+                if (matrix[it.x][it.y]) {
+                    fixedBrick(fallingBrick)
+                    return true
+                }
+            }
+        }
+        fixedBrick(fallingBrick)
+        return false
+    }
 }

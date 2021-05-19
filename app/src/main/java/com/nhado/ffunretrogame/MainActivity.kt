@@ -18,13 +18,13 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         btn_down.setOnClickListener {
-            retroScreen.down()
+            retroScreen.move(Brick.Movement.DOWN)
         }
         btn_left.setOnClickListener {
-            retroScreen.left()
+            retroScreen.move(Brick.Movement.LEFT)
         }
         btn_right.setOnClickListener {
-            retroScreen.right()
+            retroScreen.move(Brick.Movement.RIGHT)
         }
     }
 
@@ -32,7 +32,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         lifecycleScope.launch {
             viewModel.runTimeBackGround {
-                retroScreen.down()
+                retroScreen.move(Brick.Movement.DOWN)
             }
         }
     }
